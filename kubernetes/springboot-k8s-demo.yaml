@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: springboot-k8s-demo
+spec:
+  selector:
+    matchLabels:
+      app: springboot-k8s-demo
+  replicas: 1
+  #设置滚动升级策略
+  #Kubernetes在等待设置的时间后才开始进行升级，例如5s
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      #在升级过程中最多可以比原先设置多出的Pod数量
+      maxSurge: 1
+      #在升级过程中Deployment控制器最多可以删除多少个旧Pod，主要用于提供缓冲时间
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: springboot-k8s-demo
+    spec:
+      #设置的阿里云私有镜像仓库登陆信息的secret(对应2.1.2的设置)
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: springboot-k8s-demo
+          image: registry.cn-hangzhou.aliyuncs.com/wudimanong/springboot-k8s-demo:latest
+          env:
+            - name: SERVER_PORT
+              value: "8080"
+            - name: SPRING_PROFILES_ACTIVE
+              value: test
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: springboot-k8s-demo
+  labels:
+    svc: springboot-k8s-demo
+spec:
+  selector:
+    app: springboot-k8s-demo
+  ports:
+    - name: http
+      #Service在集群中暴露的端口（用于Kubernetes服务间的访问）
+      port: 8080
+      #Pod上的端口（与制作容器时暴露的端口一致，在微服务工程代码中指定的端口）
+      targetPort: 8080
+      #K8s集群外部访问的端口（外部机器访问）
+      nodePort: 30002
+  type: NodePort
